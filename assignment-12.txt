@@ -1,0 +1,60 @@
+CREATE (Home {City: "Sangli", Lattitude: 16.8524, Longitude:  74.5815})-[:Home_to_restaurant]->({City: "Kolhapur", Lattitude: 16.7050, Longitude: 74.2433})<-[:College_to_restaurant]-({City: "Sangli",Lattitude: 16.8524, Longitude:  74.5815})-[:College_to_Home]->(Home)-[:Home_to_office]->({City: "Pune", Lattitude:18.5204, Longitude: 73.8567}),
+({City: "Aashta", Lattitude: 17.696634, Longitude: 74.160721})<-[:Home_to_busstation]-(Home)-[:Home_to_school]->({City: "Sangli", Lattitude: 16.8524, Longitude:  74.5815})
+
+
+MATCH path0 = (Home {City: "Sangli", Lattitude: 16.8524, Longitude:  74.5815})-[:Home_to_restaurant]->({City: "Kolhapur", Lattitude: 16.7050, Longitude: 74.2433})<-[:College_to_restaurant]-({City: "Sangli",Lattitude: 16.8524, Longitude:  74.5815})-[:College_to_Home]->(Home)-[:Home_to_office]->({City:"Pune", Lattitude:18.5204, Longitude: 73.8567}),
+path1 = ({City: "Aashta", Lattitude: 17.696634, Longitude: 74.160721})<-[:Home_to_busstation]-(Home)-[:Home_to_school]->({City: "Sangli", Lattitude: 16.8524, Longitude:  74.5815})
+RETURN path0, path1
+
+
+WITH point({longitude: 74.58151, latitude: 16.8524}) AS P1, point({latitude: 16.8524, longitude: 74.5815}) AS P2
+RETURN point.distance(P1, P2) AS DISTANCE
+
+WITH point({longitude: 74.2433, latitude: 16.7050}) AS P1, point({latitude:  17.696634, longitude: 74.160721}) AS P2
+RETURN point.distance(P1, P2) AS DISTANCE
+
+
+
+// Add 10,000 random location points
+UNWIND range(1, 10000) AS id
+CREATE (:Location {id: id, longitude: (rand()*360) - 180, latitude: (rand()*180) - 90, city: 'Random City' + id})
+
+// Create example nodes: Trainstation and Office
+CREATE (:Trainstation {longitude: 12.56459, city: 'Copenhagen', latitude: 55.67})
+CREATE (:Office {longitude: 12.9943, city: 'Malmo', latitude: 55.611})
+
+// Create relationships between Trainstation and random locations
+MATCH (t:Trainstation)
+WITH t, rand() AS randomCount
+WITH t, toInteger(randomCount*100) AS count
+MATCH (l:Location)
+WITH t, collect(l) AS randomLocations, count
+WITH t, randomLocations[0..count] AS selectedLocations
+UNWIND selectedLocations AS l
+CREATE (t)-[:travel_route]->(l)
+
+// Create relationships between Office and random locations
+MATCH (o:Office)
+WITH o, rand() AS randomCount
+WITH o, toInteger(randomCount*100) AS count
+MATCH (l:Location)
+WITH o, collect(l) AS randomLocations, count
+WITH o, randomLocations[0..count] AS selectedLocations
+UNWIND selectedLocations AS l
+CREATE (o)-[:travel_route]->(l)
+
+
+// Find the nearest location to each Trainstation
+MATCH (t:Trainstation)
+MATCH (l:Location)
+WHERE t <> l
+WITH t, l,
+     point({longitude: t.longitude, latitude: t.latitude}) AS trainstationPoint,
+     point({longitude: l.longitude, latitude: l.latitude}) AS locationPoint
+WITH t, l, trainstationPoint, locationPoint,
+     point.distance(trainstationPoint, locationPoint) AS dist
+RETURN t.city AS Trainstation, l.city AS Location, dist AS Distance
+ORDER BY dist
+LIMIT 1
+
+MATCH p=()-[r:travel_route]->() RETURN p LIMIT 25
